@@ -1,0 +1,30 @@
+# ---- ENVIRONNEMENTS ----
+mon_env/                   # Ignorer l'env Linux perso
+
+# On ignore tout .venv par défaut…
+.venv/*
+
+# …puis on ré-inclut l'utile (cross-platform)
+!.venv/
+!.venv/pyvenv.cfg
+!.venv/**/site-packages/
+
+# Re-ignorer binaires/exécutables non portables
+.venv/**/bin/
+.venv/Scripts/
+.venv/**/Include/
+.venv/**/include/
+.venv/**/tcl/
+.venv/**/DLLs/
+.venv/**/Lib/test/
+.venv/**/lib/test/
+
+# ---- PYTHON & DIVERS ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
