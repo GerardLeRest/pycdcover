@@ -1,0 +1,28 @@
+# Environnements virtuels
+.venv/
+venv/
+mon_env/
+env/
+
+# Python cache/artefacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+
+# IDE/éditeurs
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & divers
+*.log
+.env
