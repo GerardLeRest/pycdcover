@@ -30,16 +30,27 @@ from Apercu import * # aperçu de la jaquette (face avant et arrière)
 from Gabarit import * # création du gabarit pdf
 from PIL import Image, ImageTk, ImageDraw
 from reportlab.pdfgen import canvas
-from os import chdir, popen, getcwd, sep, environ, path, mkdir, system
-import Pmw, sys, codecs, platform 
+from os import chdir, sep, environ, path, mkdir, system
+import os, sys, shutil, platform, codecs, Pmw
+from os.path import exists
+import tkinter.messagebox as messagebox
 # cairosvg
 # noms des fichiers contenant les icônes (format GIF):
 textes =('Titre du CD','Face avant de la jaquette','Récupérer les tags','Éditer les tags','Dos de la jaquette','Aperçu','Pdf')
 images =('titre.png','avant.png','recuperer_tags.png','lire_tags.png','arriere.png','apercu.png','pdf.png')
 
 class Application(Tk):
+
+    @staticmethod
+    def _app_base_dir():
+        # exe one-file : _MEIPASS ; exe one-dir : dossier de l'exe ; dev : dossier du .py
+        if getattr(sys, "frozen", False):
+            return getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+        return os.path.dirname(os.path.abspath(__file__))
+    
     def __init__(self):
         Tk.__init__(self) # constructeur de la classe parente
+        self.rep_programme = self._app_base_dir()
         self.L_devant,self.H_devant=1200,1200 # dimensions de l'image de devant
         self.L_back_cover,self.H_back_cover=1380,1180 # dimensions de l'image de derrière
         self.H_image_reduite=450
@@ -58,17 +69,17 @@ class Application(Tk):
         self.photos=[]  # mémorisation pour éviter l'effacement image (bug ImageTk)
         self.coefficient=72.0/254 # coef pour pdf (résolution=72ppp; 1 pouce=254mm)
         # gestion du dossier personnel
-        if 'HOME' in environ:
-            self.envHome = environ['HOME']
-        elif 'HOMEDRIVE' in environ and 'HOMEPATH' in environ:
-            self.envHome = path.join(environ['HOMEDRIVE'],os.environ['HOMEPATH'])
-        chdir(self.envHome)
+        if 'HOME' in os.environ:
+            self.envHome = os.environ['HOME']
+        elif 'HOMEDRIVE' in os.environ and 'HOMEPATH' in os.environ:
+            self.envHome = os.path.join(os.environ['HOMEDRIVE'], os.environ['HOMEPATH'])
+        os.chdir(self.envHome)
         # effacement du dossier ~/PyCDCover précédent:
-        if exists("PyCDCover")==True:
+        if exists("PyCDCover"):
             shutil.rmtree("PyCDCover")
-        mkdir ("PyCDCover")
-        self.repertoire=self.envHome+sep+"PyCDCover"
-        
+        os.mkdir("PyCDCover")
+        self.repertoire = self.envHome + os.sep + "PyCDCover"
+       
     def menus(self):
         """création de l'interface graphique"""
         # Création de la barre de menu (objet Menu):
@@ -95,33 +106,36 @@ class Application(Tk):
         # afficher le menu
         self.config(menu=menu1)
 
-    def barre_outils(self):    
-        # Création de la barre d'outils:
-        fonctions=[self.titres_CD,self.face_avant,self.recuperer_tags,self.edition,self.face_arriere,self.apercu_jaquette,self.pdf]
-        toolbar = Frame(self, bd =4)
-        toolbar.pack(expand =YES, fill =X)
-        # Nombre de boutons à construire : 
-        nBou = len(images)
-        # Les icônes des boutons sont placées dans un liste de variables
-        # persistantes:
-        self.photoI =[None]*nBou
-        self.rep_programme=sys.path[0]	# répertoire du programme 
-        for b in range(nBou):
-            # Création de l'icône (objet PhotoImage ImageTk) :
-            chdir(self.rep_programme+sep+"images"+sep+"icones32x32")
-            image = Image.open(images[b])
-            self.photoI[b] = ImageTk.PhotoImage(image)
-            # Création du bouton 
-            bouton= Button(toolbar, image =self.photoI[b], relief =GROOVE, command=fonctions[b])
-            self.boutons.append(bouton)
-            self.boutons[b].pack(side =LEFT)
-            # association des infos-bulles avec les boutons
-            bulle = Pmw.Balloon(self)
-            bulle.bind(self.boutons[b], textes[b])
-        # désactivation des icônes
-            if b>2:
-                self.boutons[b].config(state="disabled")
+    def barre_outils(self):
+        # Création de la barre d'outils
+        fonctions = [self.titres_CD, self.face_avant, self.recuperer_tags,
+                     self.edition, self.face_arriere, self.apercu_jaquette, self.pdf]
 
+        self.toolbar = Frame(self, bd=4)
+        self.toolbar.pack(expand=YES, fill=X)
+
+        nBou = len(images)
+        self.photoI = [None] * nBou
+        self.boutons = []
+
+        # dossier des icônes (images/icones32x32 sous le répertoire du programme)
+        icons_dir = os.path.join(self.rep_programme, "images", "icones32x32")
+
+        for b in range(nBou):
+            img_path = os.path.join(icons_dir, images[b])
+            im = Image.open(img_path)
+            self.photoI[b] = ImageTk.PhotoImage(im)  # garder une réf dans self.photoI
+
+            bouton = Button(self.toolbar, image=self.photoI[b], relief=GROOVE, command=fonctions[b])
+            self.boutons.append(bouton)
+            bouton.pack(side=LEFT)
+
+            bulle = Pmw.Balloon(self)
+            bulle.bind(bouton, textes[b])
+
+            if b > 2:  # désactivation initiale si besoin
+                bouton.config(state="disabled")
+        
     def canevas(self):
         # Nouveau conteneur pour aligner proprement les canvas
         cadre = Frame(self, bg="white")
@@ -199,7 +213,7 @@ class Application(Tk):
             boutond = Button(top_fenetre, text="Quitter", command=top_fenetre.destroy)
             boutond.pack(side=RIGHT,padx=2, pady=2)
         else:
-            tkinter.messagebox.showinfo("Info","Le fichier texte tags.txt n'a pas été créé")
+           messagebox.showinfo("Info","Le fichier texte tags.txt n'a pas été créé")
     
 
     def modif_tags(self):
@@ -221,7 +235,7 @@ class Application(Tk):
             self.boutons[6].configure(state="normal")
             self.fichier.entryconfig("pdf", state="normal")
         except (IOError):
-            tkinter.messagebox.showinfo("Info","tags non récupérés")
+            messagebox.showinfo("Info","tags non récupérés")
 
     def apercu_jaquette(self):
         """création des apercus des couvertures à l'écran"""
@@ -279,7 +293,7 @@ class Application(Tk):
             self.photos.append(photo_dos) # mémorisation - bug ImageTk    
             Sc.resizescrollregion()
         else:
-            tkinter.messagebox.showinfo("Info","L'image de la face n'a pas été créée.")
+            messagebox.showinfo("Info","L'image de la face n'a pas été créée.")
         
 
     def pdf(self):

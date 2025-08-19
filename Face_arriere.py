@@ -32,7 +32,7 @@ from PIL import Image, ImageTk, ImageDraw, ImageFont
 from os import chdir, listdir, environ, mkdir, sep 
 from os.path import exists, isdir, join
 import Pmw, tkinter.filedialog, glob
-import eyed3, sys
+import eyed3, sys, os
 
 
 class Face_arriere:
@@ -41,7 +41,11 @@ class Face_arriere:
         self.repertoire_init=repertoire_init
         self.envHome=""  # dossier personnel
         self.lecteur=""  # dossier du lecteur CD
-        self.repertoire_fichier=sys.path[0]	# répertoire du programme
+        # répertoire du programme : _MEIPASS en one-file, sinon dossier du .py
+        if getattr(sys, "frozen", False):
+            self.repertoire_fichier = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+        else:
+            self.repertoire_fichier = os.path.dirname(os.path.abspath(__file__))
         self.repertoire_travail=""   # repertoire de travail
         self.dossiers=[]
         # gestion du dossier personnel

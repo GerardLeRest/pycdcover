@@ -1,5 +1,7 @@
 # PyCDCover
 
+[dossier github]([GitHub - GerardLeRest/pycdcover: Logiciel de création de jaquettes CD](https://github.com/GerardLeRest/pycdcover))
+
 ## 1. Linux
 
 ### installation de l'environnement
@@ -17,17 +19,22 @@
   python3 -m venv mon_env
   ```
 
-- activer l'envirronement
+- activer l'environnement
   
   ```bash
   source mon_env/bin/activate
-  ```bash
   ```
 
 ### installation des paquets
 
-- installation des paquets "pip": pillow, pmw, eyed3, reportlab
-  Pour installer pillow, il suffir d'effectuer
+- pour installer les principaux paquets "pip": pillow, pmw, eyed3, reportlab
+  Il suffit d'effectuer:
+  
+  ```bash
+  pip install -r requirements.txt
+  ```
+  
+   requirements.txt contient la liste des paquets du projet
   
   ```bash
   pip install requests pillow
@@ -36,3 +43,8 @@
 - installer les trois autres paquets.
 
 # 2. Windows
+
+- Télécharger le dossier github (voir en haut de la page)
+- extraire le fichier exécutable PyCDCover.exe présent dans le dossier dist
+- double-cliquer sur PyCDCover.exe
+- Détruire le dossier téléchargé et garder le fichier exécutable.
