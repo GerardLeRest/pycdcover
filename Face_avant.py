@@ -19,35 +19,6 @@ class Face_avant:
         self.fichiers = []
         self.photos = []
 
-    def preparation_dossier(self):
-        # Supprime puis recrée le dossier thumbnails
-        if os.path.exists(self.thumbnail_path):
-            shutil.rmtree(self.thumbnail_path)
-        os.mkdir(self.thumbnail_path)
-
-    def preparation_images(self):
-        self.dossier = tkinter.filedialog.askdirectory(
-            initialdir=self.env_home,
-            title="Choisir le répertoire des images"
-        )
-        if not self.dossier:
-            return
-
-        fichiers = os.listdir(self.dossier)
-        N = 1
-        for fichier in fichiers:
-            ext = fichier.lower().split('.')[-1]
-            if ext in formats_3 or ext in formats_4:
-                chemin_image = os.path.join(self.dossier, fichier)
-                try:
-                    im = Image.open(chemin_image)
-                    out = im.resize((self.largeur, self.hauteur))
-                    nom_image = f"im{N}.jpeg"
-                    out.save(os.path.join(self.thumbnail_path, nom_image), "jpeg")
-                    N += 1
-                except Exception as e:
-                    print(f"Erreur sur {fichier} : {e}")
-
     def preparation_assemblage_photos(self):
         self.fichiers = os.listdir(self.thumbnail_path)
         total = len(self.fichiers)
@@ -76,6 +47,11 @@ class Face_avant:
                         x = 10 + (self.largeur + 10) * i
 
                     y = 10 + (self.hauteur + 10) * j
+                    # assure l'égalité entre la largeur et la hauteur
+                    if into.size != (self.largeur, self.hauteur):
+                        into = into.resize((self.largeur, self.hauteur), Image.LANCZOS)
+                    if into.mode != "RGB":
+                        into = into.convert("RGB")
                     im.paste(into, (x, y, x + self.largeur, y + self.hauteur))
                     index += 1
 
@@ -117,8 +93,6 @@ class Face_avant:
 if __name__ == "__main__":
     fen = Tk()
     face_avant = Face_avant(300, 300, "/home/gerard", "/home/gerard/PyCDCover")
-    face_avant.preparation_dossier()
-    face_avant.preparation_images()
     face_avant.preparation_assemblage_photos()
     face_avant.assemblage_photos()
     image_finale = os.path.join(face_avant.repertoire, "Image_thumbnails.jpeg")

@@ -36,8 +36,8 @@ from os.path import exists
 import tkinter.messagebox as messagebox
 # cairosvg
 # noms des fichiers contenant les icônes (format GIF):
-textes =('Titre du CD','Face avant de la jaquette','Récupérer les tags','Éditer les tags','Dos de la jaquette','Aperçu','Pdf')
-images =('titre.png','avant.png','recuperer_tags.png','lire_tags.png','arriere.png','apercu.png','pdf.png')
+textes =('Titre du CD','Récupérer les tags','Éditer les tags','Face avant de la jaquette', 'Dos de la jaquette','Aperçu','Pdf')
+images =('titre.png','recuperer_tags.png','lire_tags.png','avant.png','arriere.png','apercu.png','pdf.png')
 
 class Application(Tk):
 
@@ -88,11 +88,11 @@ class Application(Tk):
         self.fichier = Menu(menu1, tearoff=0)
         menu1.add_cascade(label="Fichier",menu=self.fichier)
         self.fichier.add_command(label="Titre", command=self.titres_CD)
-        self.fichier.add_command(label="Face avant", command=self.face_avant)
         self.tags = Menu(self.fichier, tearoff=0)
         self.fichier.add_cascade(label="Tags",menu=self.tags)
         self.tags.add_command(label="Créer", command=self.recuperer_tags)
         self.tags.add_command(label="Éditer", command=self.edition, state="disabled")
+        self.fichier.add_command(label="Face avant", command=self.face_avant, state="disabled")
         self.fichier.add_command(label="Dos", command=self.face_arriere, state="disabled")
         self.fichier.add_separator()
         self.fichier.add_command(label="Apercu", command=self.apercu_jaquette, state="disabled")
@@ -108,8 +108,8 @@ class Application(Tk):
 
     def barre_outils(self):
         # Création de la barre d'outils
-        fonctions = [self.titres_CD, self.face_avant, self.recuperer_tags,
-                     self.edition, self.face_arriere, self.apercu_jaquette, self.pdf]
+        fonctions = [self.titres_CD, self.recuperer_tags,
+                     self.edition,self.face_avant, self.face_arriere, self.apercu_jaquette, self.pdf]
 
         self.toolbar = Frame(self, bd=4)
         self.toolbar.pack(expand=YES, fill=X)
@@ -133,7 +133,7 @@ class Application(Tk):
             bulle = Pmw.Balloon(self)
             bulle.bind(bouton, textes[b])
 
-            if b > 2:  # désactivation initiale si besoin
+            if b > 1:  # désactivation initiale si besoin
                 bouton.config(state="disabled")
         
     def canevas(self):
@@ -173,23 +173,24 @@ class Application(Tk):
         """création de l'image de la face avant - Image_thumbnails.png"""
         # Instanciation de la classe Face_avant
         fa = Face_avant(150, 150, env_home=self.envHome, repertoire=self.repertoire) 
-        fa.preparation_dossier()
-        fa.preparation_images()
         fa.preparation_assemblage_photos()
         fa.assemblage_photos()
+        self.boutons[4].configure(state="normal")
+        self.fichier.entryconfig("Dos", state="normal")
         
 
     def recuperer_tags(self):
-        """création du fichier tag.txt"""
+        """création du fichier tag.csv"""
         self.tg=Face_arriere()
         self.tg.preparation_dossier_tags()
         self.tg.tags()
-        self.boutons[3].configure(state="normal")
+        # édition des tags
+        self.boutons[2].configure(state="normal")
         self.tags.entryconfig("Éditer", state="normal")
-        self.boutons[4].configure(state="normal")
-        self.fichier.entryconfig("Dos", state="normal")
+        # face avant de la pochette
+        self.boutons[3].configure(state="normal")
+        self.fichier.entryconfig("Face avant", state="normal")
 
-        
     def edition(self):
         """édition du fichier de tags"""
         chdir(self.repertoire)
@@ -206,22 +207,22 @@ class Application(Tk):
             fichier=open("tags.txt",'r')
             lignes=fichier.readlines()     # les lignes du fichier sont en unicode
             fichier.closed  
-            for i in lignes:               # ajout des lignes dans le fichier
+            for i in lignes:               # ajout des lignes dans la zone texte
                 self.zone_texte.appendtext(i)
             boutong = Button(top_fenetre, text="Enregistrer", command=self.modif_tags)
             boutong.pack(side=LEFT,padx=2, pady=2)
             boutond = Button(top_fenetre, text="Quitter", command=top_fenetre.destroy)
             boutond.pack(side=RIGHT,padx=2, pady=2)
         else:
-           messagebox.showinfo("Info","Le fichier texte tags.txt n'a pas été créé")
+            tkinter.messagebox.showinfo("Info","Le fichier texte tags.txt n'a pas été créé")
     
 
     def modif_tags(self):
-        """enregistrement des modification des tags"""
-        # fichier=codecs.open("tags.txt",'w',locale.getdefaultlocale()[1])   #ouvrir un fichier encode en "encodgae du syst d'exploitation"
-        with codecs.open("tags.txt", 'w', 'utf8') as fichier:
-            fichier.write(self.zone_texte.get('1.0', 'end'))
+        """Enregistrement des modifications des tags"""
+        with open("tags.txt", "w", encoding="utf-8") as fichier:
+            fichier.write(self.zone_texte.get("1.0", "end"))
 
+             
 
     def face_arriere(self):
         """création de Imagefrom os import chdir _Back_Cover.png"""

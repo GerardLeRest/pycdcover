@@ -1,10 +1,9 @@
-chardet==5.2.0
-coverage==5.5
+charset-normalizer==3.4.3
 deprecation==2.1.0
-eyed3==0.9.7
+eyeD3==0.9.8
 filetype==1.2.0
-packaging==24.2
-pillow==11.1.0
+mutagen==1.47.0
+packaging==25.0
+pillow==11.3.0
 Pmw==2.1.1
-reportlab==4.3.1
-toml==0.10.2
+reportlab==4.4.3

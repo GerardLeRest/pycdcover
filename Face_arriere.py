@@ -27,12 +27,17 @@
 # Importation de fonctions externes:
 
 from tkinter import *
+from tkinter import messagebox
+from tkinter.ttk import Progressbar
 #from ID3 import *
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 from os import chdir, listdir, environ, mkdir, sep 
 from os.path import exists, isdir, join
-import Pmw, tkinter.filedialog, glob
-import eyed3, sys, os
+from mutagen import File as MutaFile
+
+import Pmw, tkinter.filedialog, glob, sys, os, requests, webbrowser, urllib.parse, csv
+import io
+import re
 
 
 class Face_arriere:
@@ -74,8 +79,10 @@ class Face_arriere:
         chdir(self.repertoire_travail)
 
     def tags(self):
+        """préparation des dossiers"""
         # création du fichier tags.txt
         self.fichier=open("tags.txt",'w')
+        messagebox.showinfo("Information", "Chargement en cours… (1–2 min)")
         chdir (self.lecteur)
         for i in self.dossiers:
             fichiers_sous_dossiers=listdir(i)
@@ -98,40 +105,135 @@ class Face_arriere:
             chdir(self.lecteur)
         self.fichier.close()
         chdir(self.repertoire_travail)
-        self.fichier=open("tags.txt",'r')
-        lignes=self.fichier.readlines()
-    
+        messagebox.showinfo("Information", "Terminé !")
+
+
     def ecriture_album_fichier(self):
-            "ecriture des lignes de l'album dans le fichier"
-            # récupération des fichiers mp3
-            chansons=glob.glob("*.mp3")
-            #print(chansons)
-            try:
-                if not chansons:
-                    self.fichier.write("Aucun fichier MP3 trouvé\n\n")
-                    return
-                audiofile = eyed3.load(chansons[0])
-                if audiofile and audiofile.tag:
-                    print (audiofile.tag.artist,": ",audiofile.tag.album)
-                    self.fichier.write("C: " + audiofile.tag.artist + "\n")
-                    self.fichier.write("A: " + audiofile.tag.album  + "\n")
-                else:
-                    raise ValueError("Tag manquant dans le fichier MP3")
-            except:
-                self.fichier.write("ERROR"+"\n")
-            N=0 # N° de chanson
-            for j in chansons:
-                N=N+1
+        """écriture des lignes de l'album dans le fichier"""
+        chansons = sorted(glob.glob("*.mp3"))
+
+        try:
+            if not chansons:
+                self.fichier.write("Aucun fichier MP3 trouvé\n\n")
+                return
+
+            # --- récupérer artiste/album/année/genre de façon robuste ---
+            def _get(au, key, default=""):
+                return (au.get(key, [default])[0] if au else default) or default
+
+            # recherche de la première chanson valable
+            tags0 = None
+            for s in chansons:
                 try:
-                    audiofile = eyed3.load(j)
-                    print(audiofile.tag.title)
-                    self.fichier.write(str(N) + " - " + audiofile.tag.title+"\n")
-                except Exception as e:
-                    print(f"Erreur avec le fichier {j} : {e}")
-                    self.fichier.write(str(N) + " - ERROR\n")
-            chdir(self.lecteur)
-            self.fichier.write("\n") # espace entre les albums
-            
+                    tags0 = MutaFile(s, easy=True)
+                    if tags0:
+                        break
+                except Exception:
+                    pass
+
+            artiste = _get(tags0, "artist", "Inconnu")
+            album   = _get(tags0, "album",  "Inconnu")
+            date_raw = (_get(tags0, "originaldate") or _get(tags0, "date") or _get(tags0, "year") or "")
+            annee = date_raw[:4] if date_raw[:4].isdigit() else "Inconnue"
+            genre = _get(tags0, "genre", "Inconnu")
+
+            # Affichage + pochette (inchangé)
+            print(artiste, ": ", album); print(annee); print(genre)
+            try:
+                self.enregistrer_pochette(artiste, album)
+            except Exception as e:
+                print(f"Erreur enregistrer_pochette : {e}")
+
+            # Entête -> on utilise self.fichier (déjà ouvert par tags())
+            self.fichier.write(f"C: {artiste} \n")
+            self.fichier.write(f"A: {album} \n")
+            self.fichier.write(f"{annee} - {genre} \n")
+
+        except Exception as e:
+            print("Erreur lecture tags de l'album :", e)
+            self.fichier.write("ERROR\n")
+
+        # Lignes des chansons
+        for i, j in enumerate(chansons, 1):
+            try:
+                au = None
+                try:
+                    au = MutaFile(j, easy=True)
+                except Exception:
+                    au = None
+
+                titre = (au.get("title", [""])[0] if au else "") if au else ""
+                if not titre:
+                    # fallback : titre depuis le nom de fichier
+                    base = os.path.splitext(os.path.basename(j))[0]
+                    # tente "NN - Titre"
+                    m = re.match(r"\s*(\d{1,2})\s*[-_. ]\s*(.+)", base)
+                    titre = m.group(2) if m else base
+
+                track = (au.get("tracknumber", [""])[0] if au else "")
+                piste = track.split("/", 1)[0].strip() if track else ""
+                if piste.isdigit():
+                    piste = str(int(piste))  # "02" -> "2"
+
+                num = piste or str(i)
+                # À l'écran
+                print(f"{num} - {tkinter}\n")
+                #dans le fichier
+                self.fichier.write(f"{num} - {titre}\n")
+
+            except OSError as e:
+                # ex: [Errno 5] Input/output error → continuer
+                print(f"Erreur avec le fichier {j} : {e}")
+                self.fichier.write(f"{i} - ERROR\n")
+            except Exception as e:
+                print(f"Erreur avec le fichier {j} : {e}")
+                self.fichier.write(f"{i} - ERROR\n")
+
+        self.fichier.write("\n")  # séparation entre albums
+
+
+    def enregistrer_pochette(self, artist, album, target_px=512):
+        """Télécharge la pochette et redimensionne à target_px."""
+        outdir = os.path.join(self.envHome, "PyCDCover", "thumbnails")
+        os.makedirs(outdir, exist_ok=True)
+
+        safe = "".join(c for c in f"{artist} - {album}" if c not in '\\/:*?"<>|').strip()
+        dest = os.path.join(outdir, f"{safe}.jpg")
+
+        if os.path.exists(dest):  # cache
+            return dest
+
+        # Recherche release-group
+        r = requests.get(
+            "https://musicbrainz.org/ws/2/release-group/",
+            params={"query": f'artist:"{artist}" AND release:"{album}"', "fmt": "json"},
+            headers={"User-Agent": "PyCDCover/1.0"}, timeout=7
+        )
+        groups = r.json().get("release-groups", [])
+        if not groups:
+            webbrowser.open(
+                f"https://musicbrainz.org/search?query={urllib.parse.quote_plus(artist+' '+album)}&type=release_group"
+            )
+            return None
+
+        mbid = groups[0]["id"]
+
+        # Téléchargement de l’image
+        img = requests.get(
+            f"https://coverartarchive.org/release-group/{mbid}/front",
+            headers={"User-Agent": "PyCDCover/1.0"}, timeout=7
+        )
+        if img.status_code != 200:
+            webbrowser.open(f"https://musicbrainz.org/release-group/{mbid}")
+            return None
+
+        # Redimensionnement
+        im = Image.open(io.BytesIO(img.content)).convert("RGB")
+        im.thumbnail((target_px, target_px))
+        im.save(dest, "JPEG", quality=85)
+
+        return dest
+
     def preparation_dossier_image(self):
         "création de l'image à partir du fichier texte"
         from os import sep, chdir
@@ -158,8 +260,6 @@ class Face_arriere:
         self.font1 = ImageFont.truetype(self.police1, int(self.taille))
         self.font2 = ImageFont.truetype(self.police2, int(self.taille))
         self.font3 = ImageFont.truetype(self.police3, int(self.taille))
-
-        
 
     def creation_image(self):
         """Créer l’image de l’arrière du CD avec troncature des titres longs"""
